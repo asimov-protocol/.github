@@ -1,0 +1,50 @@
+name: Setup Rust
+description: Sets up Rust environment with caching
+
+inputs:
+  toolchain:
+    description: Rust toolchain version (e.g., 1.81.0)
+    required: false
+    default: stable
+  components:
+    description: Rust components to install (e.g., rustfmt, clippy)
+    required: false
+    default: ''
+  targets:
+    description: Additional Rust targets to install
+    required: false
+    default: ''
+
+outputs:
+  name:
+    description: "The name of the installed toolchain"
+    value: ${{ steps.install-rust.outputs.name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Cargo registry + index
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+    
+    - name: Cache target directory
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-
+          
+    - name: Install Rust
+      id: install-rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+        targets: ${{ inputs.targets }}

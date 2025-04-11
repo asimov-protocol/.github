@@ -1,0 +1,98 @@
+name: Review PR
+description: Posts a review on the PR based on formatting + build results
+
+inputs:
+  formatting_job_name:
+    description: The name of the formatting job (e.g. "Check formatting")
+    required: true
+  verbose:
+    description: Whether to show all steps, or just failures
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Post PR Review
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const FORMATTING_JOB_NAME = '${{ inputs.formatting_job_name }}';
+          const VERBOSE = '${{ inputs.verbose }}' === 'true';
+          
+          // Fetch all jobs from the workflow run
+          const response = await github.rest.actions.listJobsForWorkflowRunAttempt({
+            ...context.repo,
+            run_id: context.runId,
+            attempt_number: context.runAttempt || 1
+          });
+          
+          // Helper functions for URLs
+          function getJobUrl(jobId) {
+            return `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/job/${jobId}?check_suite_focus=true`;
+          }
+          
+          function getStepUrl(jobId, stepNumber) {
+            return `${getJobUrl(jobId)}#step:${stepNumber}:0`;
+          }
+          
+          // Process jobs and build report
+          let allSuccess = true;
+          let body = `## CI Results\n\n| Platform | Name | Status | Details |\n| --- | --- | --- | --- |\n`;
+          
+          // Process formatting job first if it exists
+          let formattingJob = response.data.jobs.find(job => job.name.includes(FORMATTING_JOB_NAME));
+          if (formattingJob && (VERBOSE || formattingJob.conclusion !== 'success')) {
+            const status = formattingJob.conclusion === 'success' ? '✅' : '❌';
+            allSuccess = allSuccess && formattingJob.conclusion === 'success';
+            body += `| All | Formatting | ${status} | [Details](${getJobUrl(formattingJob.id)}) |\n`;
+          }
+          
+          // Process all other jobs
+          for (let job of response.data.jobs) {
+            if (!formattingJob || job.id !== formattingJob.id) {
+              const platformMatch = job.name.match(/(Windows|Linux|macOS|Ubuntu)/i);
+              const platform = platformMatch ? platformMatch[1] : 'Unknown';
+              let jobFailed = false;
+              
+              // Add details for each step if verbose or any failures
+              for (let step of job.steps) {
+                if (VERBOSE || step.conclusion === 'failure') {
+                  const status = 
+                    step.conclusion === 'success' ? '✅' :
+                    step.conclusion === 'skipped' ? '⏩' :
+                    step.conclusion === 'failure' ? '❌' : '❓';
+                  
+                  body += `| ${platform} | ${step.name} | ${status} | [Details](${getStepUrl(job.id, step.number)}) |\n`;
+                  if (step.conclusion !== 'success' && step.conclusion !== 'skipped') {
+                    jobFailed = true;
+                  }
+                }
+              }
+              
+              // Add summary row for successful jobs if verbose
+              if (!jobFailed && VERBOSE) {
+                body += `| ${platform} | All steps | ✅ | [Details](${getJobUrl(job.id)}) |\n`;
+              }
+              
+              if (jobFailed) {
+                allSuccess = false;
+              }
+            }
+          }
+          
+          // Post comment or review based on results
+          if (allSuccess) {
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "✅ CI passed all checks. Ready for manual review."
+            });
+          } else {
+            await github.rest.pulls.createReview({
+              ...context.repo,
+              pull_number: context.issue.number,
+              event: 'REQUEST_CHANGES',
+              body
+            });
+          }

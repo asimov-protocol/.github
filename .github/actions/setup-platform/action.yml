@@ -1,0 +1,40 @@
+name: Setup Platform
+description: Sets up platform-specific dependencies
+
+inputs:
+  platform:
+    description: The platform to set up (Linux, Windows, macOS)
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install dependencies on Linux
+      if: inputs.platform == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev pkg-config
+        echo "Checking installation of libudev-dev and pkg-config:"
+        dpkg -s libudev-dev pkg-config || true
+        
+        echo "Which pkg-config is being used?"
+        which pkg-config || true
+        
+        echo "pkg-config version:"
+        pkg-config --version || true
+        
+    - name: Install OpenSSL (Windows)
+      if: inputs.platform == 'Windows'
+      shell: pwsh
+      run: |
+        choco install openssl --no-progress
+        
+    - name: Set OpenSSL environment variables (Windows)
+      if: inputs.platform == 'Windows'
+      shell: pwsh
+      run: |
+        echo "OPENSSL_NO_VENDOR=1" >> $env:GITHUB_ENV
+        echo "OPENSSL_DIR=C:\Program Files\OpenSSL" >> $env:GITHUB_ENV
+        echo "OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL\include" >> $env:GITHUB_ENV
+        echo "OPENSSL_LIB_DIR=C:\Program Files\OpenSSL\lib" >> $env:GITHUB_ENV

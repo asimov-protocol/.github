@@ -1,0 +1,30 @@
+name: Check Rust Formatting
+description: Checks formatting using rustfmt
+
+inputs:
+  ref:
+    description: Git ref of the PR head
+    required: true
+  repository:
+    description: Repo full name (owner/repo)
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout PR Head
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.ref }}
+        repository: ${{ inputs.repository }}
+        
+    - name: Setup Rust environment
+      id: setup-rust
+      uses: asimov-protocol/temp-ci/setup-rust@evren-ci
+      with:
+        toolchain: stable
+        components: rustfmt
+        
+    - name: Check formatting
+      run: cargo +${{ steps.setup-rust.outputs.name }} fmt --all -- --check 2>/dev/null
+      shell: bash
