@@ -20,7 +20,7 @@ runs:
   using: "composite"
   steps:
     - name: Setup platform dependencies
-      uses: asimov-protocol/temp-ci/.github/actions/setup-platform@evren-ci
+      uses: asimov-protocol/.github/actions/setup-platform@evren-ci
       with:
         platform: ${{ runner.os }}
         
@@ -32,7 +32,7 @@ runs:
         
     - name: Setup Rust environment
       id: setup-rust
-      uses: asimov-protocol/temp-ci/.github/actions/setup-rust@evren-ci
+      uses: asimov-protocol/.github/actions/setup-rust@evren-ci
       with:
         toolchain: ${{ inputs.toolchain }}
         components: rustfmt
