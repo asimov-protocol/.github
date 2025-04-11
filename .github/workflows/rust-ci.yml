@@ -8,13 +8,24 @@ on:
         description: "Which cargo features to enable"
         required: false
         default: "--all-features"
-       
+
       extra-test-flags:
         type: string
         description: "Extra flags for cargo test"
         required: false
         default: "--verbose"
-        
+
+      run-doc-tests:
+        type: boolean
+        description: "Whether to run documentation tests"
+        required: false
+        default: true
+      custom-build-script:
+        type: string
+        description: "Path to a custom build script to run instead of cargo build"
+        required: false
+        default: ""
+
 jobs:
   build-lint-test:
     name: Build, Lint, and Test
@@ -25,9 +36,9 @@ jobs:
         run: echo "Event that triggered the workflow is ${{github.event_name}}"
 
       - name: Setup Platform Dependencies
-        uses: asimov-protocol/.github/.github/actions/setup-platform@evren-ci
+        uses: asimov-protocol/.github/.github/actions/setup-platform@v1.0
         with:
-          platform: Linux 
+          platform: Linux
       # - name: Cache cargo registry
       #   uses: actions/cache@v4
       #   with:
@@ -51,7 +62,7 @@ jobs:
 
       - name: Setup Rust environment
         id: setup-rust
-        uses: asimov-protocol/.github/.github/actions/setup-rust@evren-ci
+        uses: asimov-protocol/.github/.github/actions/setup-rust@v1.0
         with:
           toolchain: stable
           components: rustfmt
@@ -61,9 +72,16 @@ jobs:
 
       - name: Lint with Clippy
         run: cargo clippy ${{ inputs.cargo-features }} --all-targets -- -D warnings
-
-      - name: Build
-        run: cargo build ${{ inputs.cargo-features }} ${{ inputs.extra-test-flags }}
+      - name: Build (using cargo or custom script)
+        run: |
+          if [ -n "${{ inputs.custom-build-script }}" ]; then
+            echo "Using custom build script: ${{ inputs.custom-build-script }}"
+            chmod +x "${{ inputs.custom-build-script }}"
+            ./"${{ inputs.custom-build-script }}"
+          else
+            echo "Using default cargo build command"
+            cargo build ${{ inputs.cargo-features }} ${{ inputs.extra-test-flags }}
+          fi
 
       - name: Run Tests
         run: cargo test ${{ inputs.cargo-features }} ${{ inputs.extra-test-flags }}
@@ -72,8 +90,9 @@ jobs:
         run: |
           cargo install --locked cargo-audit
           cargo audit
-      
+
       - name: Documentation Tests
+        if: inputs.run-doc-tests == true
         run: cargo test --doc
 
   check-targets:
@@ -94,16 +113,14 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-    #   #delete below step after moving actions to the common repository
-    #   - name: Check out code
-    #     uses: actions/checkout@v4
+      #   #delete below step after moving actions to the common repository
+      #   - name: Check out code
+      #     uses: actions/checkout@v4
 
       - name: Check Rust target
-        uses: asimov-protocol/.github/.github/actions/check-target@evren-ci
+        uses: asimov-protocol/.github/.github/actions/check-target@v1.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           target: ${{ matrix.target }}
           toolchain: 1.81.0
-
-      
