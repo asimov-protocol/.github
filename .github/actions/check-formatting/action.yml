@@ -20,7 +20,7 @@ runs:
         
     - name: Setup Rust environment
       id: setup-rust
-      uses: asimov-protocol/temp-ci/setup-rust@evren-ci
+      uses: asimov-protocol/.github/.github/actions/setup-rust@v1.0
       with:
         toolchain: stable
         components: rustfmt
