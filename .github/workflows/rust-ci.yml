@@ -39,24 +39,7 @@ jobs:
         uses: asimov-protocol/.github/.github/actions/setup-platform@v1.0
         with:
           platform: Linux
-      # - name: Cache cargo registry
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cargo/registry
-      #       ~/.cargo/git
-      #     key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
-      # - name: Cache target directory
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: target
-      #     key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-cargo-target-
-
-      # - name: Set up Rust
-      #   uses: dtolnay/rust-toolchain@stable
       - name: Check out code
         uses: actions/checkout@v4
 
@@ -113,10 +96,6 @@ jobs:
             os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
-      #   #delete below step after moving actions to the common repository
-      #   - name: Check out code
-      #     uses: actions/checkout@v4
-
       - name: Check Rust target
         uses: asimov-protocol/.github/.github/actions/check-target@v1.0
         with:
