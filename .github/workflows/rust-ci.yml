@@ -20,11 +20,37 @@ on:
         description: "Whether to run documentation tests"
         required: false
         default: true
+
       custom-build-script:
         type: string
         description: "Path to a custom build script to run instead of cargo build"
         required: false
         default: ""
+
+      targets:
+        type: string
+        description: "JSON string containing matrix configuration of build targets"
+        required: false
+        default: |
+          {
+            "include": [
+              {
+                "name": "Linux",
+                "target": "x86_64-unknown-linux-gnu",
+                "os": "ubuntu-24.04"
+              },
+              {
+                "name": "Windows",
+                "target": "x86_64-pc-windows-msvc",
+                "os": "windows-latest"
+              },
+              {
+                "name": "macOS",
+                "target": "x86_64-apple-darwin",
+                "os": "macos-latest"
+              }
+            ]
+          }
 
 jobs:
   build-lint-test:
@@ -81,19 +107,22 @@ jobs:
   check-targets:
     name: Check ${{ matrix.name }}
     needs: build-lint-test
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     include:
+    #       - name: Linux
+    #         target: x86_64-unknown-linux-gnu
+    #         os: ubuntu-24.04
+    #       - name: Windows
+    #         target: x86_64-pc-windows-msvc
+    #         os: windows-latest
+    #       - name: macOS
+    #         target: x86_64-apple-darwin
+    #         os: macos-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: Linux
-            target: x86_64-unknown-linux-gnu
-            os: ubuntu-24.04
-          - name: Windows
-            target: x86_64-pc-windows-msvc
-            os: windows-latest
-          - name: macOS
-            target: x86_64-apple-darwin
-            os: macos-latest
+      matrix: ${{ fromJson(inputs.targets) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check Rust target
