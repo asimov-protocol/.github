@@ -1,0 +1,134 @@
+name: Reusable Rust CI
+
+on:
+  workflow_call:
+    inputs:
+      cargo-features:
+        type: string
+        description: "Which cargo features to enable"
+        required: false
+        default: "--all-features"
+
+      extra-test-flags:
+        type: string
+        description: "Extra flags for cargo test"
+        required: false
+        default: "--verbose"
+
+      run-doc-tests:
+        type: boolean
+        description: "Whether to run documentation tests"
+        required: false
+        default: true
+
+      custom-build-script:
+        type: string
+        description: "Path to a custom build script to run instead of cargo build"
+        required: false
+        default: ""
+
+      targets:
+        type: string
+        description: "JSON string containing matrix configuration of build targets"
+        required: false
+        default: |
+          {
+            "include": [
+              {
+                "name": "Linux",
+                "target": "x86_64-unknown-linux-gnu",
+                "os": "ubuntu-24.04"
+              },
+              {
+                "name": "Windows",
+                "target": "x86_64-pc-windows-msvc",
+                "os": "windows-latest"
+              },
+              {
+                "name": "macOS",
+                "target": "x86_64-apple-darwin",
+                "os": "macos-latest"
+              }
+            ]
+          }
+
+jobs:
+  build-lint-test:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log event name
+        run: echo "Event that triggered the workflow is ${{github.event_name}}"
+
+      - name: Setup Platform Dependencies
+        uses: asimov-protocol/.github/.github/actions/setup-platform@v1.0
+        with:
+          platform: Linux
+
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust environment
+        id: setup-rust
+        uses: asimov-protocol/.github/.github/actions/setup-rust@v1.0
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Check formatting with rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: Lint with Clippy
+        run: cargo clippy ${{ inputs.cargo-features }} --all-targets -- -D warnings
+      - name: Build (using cargo or custom script)
+        run: |
+          if [ -n "${{ inputs.custom-build-script }}" ]; then
+            echo "Using custom build script: ${{ inputs.custom-build-script }}"
+            chmod +x "${{ inputs.custom-build-script }}"
+            ./"${{ inputs.custom-build-script }}"
+          else
+            echo "Using default cargo build command"
+            cargo build ${{ inputs.cargo-features }} ${{ inputs.extra-test-flags }}
+          fi
+
+      - name: Run Tests
+        run: cargo test ${{ inputs.cargo-features }} ${{ inputs.extra-test-flags }}
+
+      - name: Security audit with cargo-audit
+        run: |
+          cargo install --locked cargo-audit
+          cargo audit
+
+      - name: Documentation Tests
+        if: inputs.run-doc-tests == true
+        run: cargo test --doc
+
+  check-targets:
+    name: Check ${{ matrix.name }}
+    needs: build-lint-test
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     include:
+    #       - name: Linux
+    #         target: x86_64-unknown-linux-gnu
+    #         os: ubuntu-24.04
+    #       - name: Windows
+    #         target: x86_64-pc-windows-msvc
+    #         os: windows-latest
+    #       - name: macOS
+    #         target: x86_64-apple-darwin
+    #         os: macos-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.targets) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check Rust target
+        uses: asimov-protocol/.github/.github/actions/check-target@v1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          target: ${{ matrix.target }}
+          toolchain: 1.81.0

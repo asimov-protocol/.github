@@ -1,0 +1,64 @@
+name: Check Target
+description: Checks binaries and tests for a given target
+
+inputs:
+  ref:
+    description: Git ref of the PR head
+    required: true
+  repository:
+    description: Repo full name (owner/repo)
+    required: true
+  target:
+    description: Rust target triple (e.g., x86_64-unknown-linux-gnu)
+    required: true
+  toolchain:
+    description: Rust toolchain version (e.g., 1.81.0)
+    required: false
+    default: 1.81.0
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup platform dependencies
+      uses: asimov-protocol/.github/.github/actions/setup-platform@v1.0
+      with:
+        platform: ${{ runner.os }}
+        
+    - name: Checkout PR Head
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.ref }}
+        repository: ${{ inputs.repository }}
+        
+    - name: Setup Rust environment
+      id: setup-rust
+      uses: asimov-protocol/.github/.github/actions/setup-rust@v1.0
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: rustfmt
+        targets: ${{ inputs.target }}
+        
+    - name: Cache Cargo target directory
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ inputs.target }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-${{ inputs.target }}-
+          
+    - name: Check binaries
+      id: check-bins
+      shell: bash
+      run: cargo +${{ steps.setup-rust.outputs.name }} check --target ${{ inputs.target }} --workspace --keep-going --bins
+      
+    - name: Check tests
+      id: check-tests
+      if: steps.check-bins.outcome == 'success'
+      shell: bash
+      run: cargo +${{ steps.setup-rust.outputs.name }} check --target ${{ inputs.target }} --workspace --keep-going --tests
+      
+    - name: Run tests
+      id: run-tests
+      if: steps.check-tests.outcome == 'success'
+      shell: bash
+      run: cargo +${{ steps.setup-rust.outputs.name }} test --target ${{ inputs.target }} --workspace --tests --no-fail-fast
