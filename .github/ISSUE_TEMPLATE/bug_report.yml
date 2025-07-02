@@ -19,7 +19,7 @@ body:
       label: Prerequisites
       description: Please ensure you have completed all of the following.
       options:
-        - label: I have read and understood the [contribution guidelines](https://github.com/asimov-platform/.github/blob/master/.github/contributing.md).
+        - label: I have read and understood the [contribution guidelines](https://github.com/asimov-protocol/.github/blob/master/.github/contributing.md).
           required: true
         - label: I have searched the [existing issues](../issues) for this problem, without success.
           required: true
